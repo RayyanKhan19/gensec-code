@@ -6,6 +6,13 @@ mymsticpyconfig.yaml
 __pycache__
 *.pyc
 *.py[cod]
+
+# Homework environment and generated RAG data
+env/
+.venv/
+.chromadb/
+**/__pycache__/
+*.pyc
 .chainlit
 chainlit.md
 credentials.json
