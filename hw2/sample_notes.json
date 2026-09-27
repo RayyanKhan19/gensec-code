@@ -1,0 +1,14 @@
+[
+  {
+    "title": "Retrieval-Augmented Generation",
+    "content": "Retrieval-augmented generation (RAG) finds relevant passages in an external collection and supplies them as context to a language model. The model can then ground its answer in those passages instead of relying only on its training data."
+  },
+  {
+    "title": "Document Chunking",
+    "content": "Long documents are split into smaller chunks before embedding. A small overlap between adjacent chunks can preserve context that would otherwise fall at a chunk boundary. Chunk size and overlap should be chosen for the document and retrieval task."
+  },
+  {
+    "title": "Vector Similarity Search",
+    "content": "An embedding maps text to a vector. A vector store can compare a question vector with stored document vectors and return nearby matches. Similarity search helps select context, but the retrieved passages still need to support the final answer."
+  }
+]
