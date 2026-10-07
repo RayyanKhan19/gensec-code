@@ -57,3 +57,18 @@ dist/
 *.egg
 pip-wheel-metadata/
 share/python-wheels/
+
+# Homework 3 local secrets, environments, and generated data
+hw3/.env
+hw3/.env.*
+!hw3/.env.example
+hw3/.venv/
+hw3/env/
+hw3/venv/
+hw3/__pycache__/
+hw3/*.py[cod]
+hw3/data/
+hw3/*.db
+hw3/*.sqlite
+hw3/*.sqlite3
+hw3/*.log
