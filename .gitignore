@@ -72,3 +72,5 @@ hw3/*.db
 hw3/*.sqlite
 hw3/*.sqlite3
 hw3/*.log
+hw3/assignments.json
+hw3/assignments.json.tmp
