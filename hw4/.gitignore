@@ -1,0 +1,16 @@
+# Secrets and local environment
+.env
+.env.*
+!.env.example
+secrets/
+*.secret
+*.pem
+*.key
+
+# Local dependencies and generated files
+.venv/
+venv/
+__pycache__/
+**/__pycache__/
+*.py[cod]
+node_modules/
