@@ -1,0 +1,8 @@
+[project]
+name = "hw4"
+version = "0.1.0"
+requires-python = ">=3.12"
+dependencies = [
+    "mcp>=1.26,<2",
+    "pytest>=8.4,<9",
+]
