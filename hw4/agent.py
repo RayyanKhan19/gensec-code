@@ -67,6 +67,7 @@ class ToolEventPrinter(BaseCallbackHandler):
     def __init__(self) -> None:
         """Create the callback and its successful tool-call history."""
         self.completed_tools: list[str] = []
+        self._tool_names_by_run_id: dict[Any, str] = {}
 
     def on_tool_start(
         self,
@@ -82,17 +83,19 @@ class ToolEventPrinter(BaseCallbackHandler):
     ) -> None:
         """Print the tool name and a compact representation of its inputs."""
         name = serialized.get("name", "MCP tool")
+        self._tool_names_by_run_id[run_id] = name
         print(f"[tool] {name}: {_compact(inputs if inputs is not None else input_str)}")
 
     def on_tool_end(self, output: Any, *, run_id: Any, parent_run_id: Any = None, **kwargs: Any) -> None:
         """Print a compact representation of a tool result."""
-        name = kwargs.get("name")
-        if isinstance(name, str):
+        name = self._tool_names_by_run_id.pop(run_id, None)
+        if name is not None:
             self.completed_tools.append(name)
         print(f"[result] {_compact(output)}")
 
     def on_tool_error(self, error: BaseException, *, run_id: Any, parent_run_id: Any = None, **kwargs: Any) -> None:
         """Print a concise tool failure before LangChain propagates it."""
+        self._tool_names_by_run_id.pop(run_id, None)
         print(f"[tool error] {type(error).__name__}: {_compact(str(error))}")
 
 
@@ -156,7 +159,8 @@ async def run_agent(available_hours: float) -> None:
     if any(position < 0 for position in positions) or positions != sorted(positions):
         raise RuntimeError(
             "The agent did not complete the required MCP sequence "
-            "(read assignments, rank, allocate time, save plan). Review the tool events and try again."
+            "(read assignments, rank, allocate time, save plan). "
+            f"Observed completed tools: {events.completed_tools!r}. Review the tool events and try again."
         )
     final_message = result["messages"][-1]
     final_text = _message_text(final_message).strip()
