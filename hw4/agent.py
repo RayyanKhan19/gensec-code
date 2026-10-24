@@ -25,6 +25,9 @@ PLANNER_SERVER = (PROJECT_ROOT / "mcp-server.py").resolve()
 FILESYSTEM_ENTRY = (
     PROJECT_ROOT / "node_modules" / "@modelcontextprotocol" / "server-filesystem" / "dist" / "index.js"
 ).resolve()
+MODEL_REQUEST_TIMEOUT_SECONDS = 40
+AGENT_WORKFLOW_TIMEOUT_SECONDS = 90
+MODEL_RETRIES = 0
 
 
 def server_config() -> dict[str, dict[str, Any]]:
@@ -111,6 +114,31 @@ def _message_text(message: Any) -> str:
     return str(content)
 
 
+def _build_model(model_name: str, api_key: str) -> ChatGoogleGenerativeAI:
+    """Build Gemini with bounded requests and no automatic retries."""
+    return ChatGoogleGenerativeAI(
+        model=model_name,
+        google_api_key=api_key,
+        request_timeout=MODEL_REQUEST_TIMEOUT_SECONDS,
+        retries=MODEL_RETRIES,
+    )
+
+
+async def _invoke_agent_with_timeout(agent: Any, request: dict[str, Any], config: dict[str, Any]) -> Any:
+    """Run the full agent workflow with a clear upper time bound."""
+    try:
+        return await asyncio.wait_for(
+            agent.ainvoke(request, config=config),
+            timeout=AGENT_WORKFLOW_TIMEOUT_SECONDS,
+        )
+    except asyncio.TimeoutError as exc:
+        raise RuntimeError(
+            f"Study Planner workflow timed out after {AGENT_WORKFLOW_TIMEOUT_SECONDS} seconds. "
+            f"Each Gemini request is limited to {MODEL_REQUEST_TIMEOUT_SECONDS} seconds, "
+            "with automatic retries disabled. Check model availability and network access, then retry."
+        ) from exc
+
+
 async def run_agent(available_hours: float) -> None:
     """Run the Gemini agent with both MCP servers and the requested budget."""
     load_dotenv(PROJECT_ROOT / ".env")
@@ -122,15 +150,17 @@ async def run_agent(available_hours: float) -> None:
             "See .env.example for the variable names."
         )
 
+    print("[progress] Starting MCP servers and discovering tools...", flush=True)
     client = MultiServerMCPClient(server_config())
     tools = await client.get_tools()
+    print(f"[progress] Discovered {len(tools)} MCP tools.", flush=True)
     required_tools = {"read_text_file", "rank_assignments", "allocate_study_time", "write_file"}
     found_tools = {tool.name for tool in tools}
     missing = required_tools - found_tools
     if missing:
         raise RuntimeError(f"MCP servers did not provide required tools: {', '.join(sorted(missing))}")
 
-    model = ChatGoogleGenerativeAI(model=model_name, google_api_key=api_key)
+    model = _build_model(model_name, api_key)
     agent = create_agent(
         model,
         tools,
@@ -150,7 +180,14 @@ async def run_agent(available_hours: float) -> None:
         f"The available study budget is {available_hours:g} hours. Save the finished Markdown plan to {PLAN_FILE}."
     )
     events = ToolEventPrinter()
-    result = await agent.ainvoke(
+    print(
+        f"[progress] Sending request to Gemini model {model_name} "
+        f"(request timeout {MODEL_REQUEST_TIMEOUT_SECONDS}s; retries {MODEL_RETRIES}; "
+        f"workflow timeout {AGENT_WORKFLOW_TIMEOUT_SECONDS}s)...",
+        flush=True,
+    )
+    result = await _invoke_agent_with_timeout(
+        agent,
         {"messages": [{"role": "user", "content": request}]},
         config={"callbacks": [events], "recursion_limit": 18},
     )
