@@ -11,6 +11,7 @@ from pathlib import Path
 from typing import Any
 
 from dotenv import load_dotenv
+from google.genai.errors import APIError as GoogleAPIError
 from langchain.agents import create_agent
 from langchain_core.callbacks import BaseCallbackHandler
 from langchain_google_genai import ChatGoogleGenerativeAI
@@ -25,9 +26,15 @@ PLANNER_SERVER = (PROJECT_ROOT / "mcp-server.py").resolve()
 FILESYSTEM_ENTRY = (
     PROJECT_ROOT / "node_modules" / "@modelcontextprotocol" / "server-filesystem" / "dist" / "index.js"
 ).resolve()
-MODEL_REQUEST_TIMEOUT_SECONDS = 40
-AGENT_WORKFLOW_TIMEOUT_SECONDS = 90
+MODEL_REQUEST_TIMEOUT_SECONDS = 60
+AGENT_WORKFLOW_TIMEOUT_SECONDS = 240
 MODEL_RETRIES = 0
+REQUIRED_MCP_TOOLS = (
+    "read_text_file",
+    "rank_assignments",
+    "allocate_study_time",
+    "write_file",
+)
 
 
 def server_config() -> dict[str, dict[str, Any]]:
@@ -62,6 +69,29 @@ def _compact(value: Any, limit: int = 240) -> str:
     else:
         rendered = " ".join(json.dumps(value, ensure_ascii=False, default=str).split())
     return rendered if len(rendered) <= limit else rendered[: limit - 1] + "…"
+
+
+def _select_workflow_tools(available_tools: list[Any]) -> list[Any]:
+    """Return only required workflow tools and fail if any are unavailable."""
+    tools_by_name = {tool.name: tool for tool in available_tools}
+    missing = set(REQUIRED_MCP_TOOLS) - tools_by_name.keys()
+    if missing:
+        raise RuntimeError(f"MCP servers did not provide required tools: {', '.join(sorted(missing))}")
+    return [tools_by_name[name] for name in REQUIRED_MCP_TOOLS]
+
+
+def _format_google_api_error(error: GoogleAPIError) -> str:
+    """Return a concise Google API failure without dumping response details."""
+    code = getattr(error, "code", None)
+    status = getattr(error, "status", None)
+    message = getattr(error, "message", None) or "Request failed."
+    label = "Google Gemini API error"
+    if code is not None:
+        label += f" (HTTP {code}"
+        if status:
+            label += f", {status}"
+        label += ")"
+    return f"{label}: {_compact(message, 180)}"
 
 
 class ToolEventPrinter(BaseCallbackHandler):
@@ -152,13 +182,13 @@ async def run_agent(available_hours: float) -> None:
 
     print("[progress] Starting MCP servers and discovering tools...", flush=True)
     client = MultiServerMCPClient(server_config())
-    tools = await client.get_tools()
-    print(f"[progress] Discovered {len(tools)} MCP tools.", flush=True)
-    required_tools = {"read_text_file", "rank_assignments", "allocate_study_time", "write_file"}
-    found_tools = {tool.name for tool in tools}
-    missing = required_tools - found_tools
-    if missing:
-        raise RuntimeError(f"MCP servers did not provide required tools: {', '.join(sorted(missing))}")
+    available_tools = await client.get_tools()
+    tools = _select_workflow_tools(available_tools)
+    print(
+        f"[progress] Discovered {len(available_tools)} MCP tools; exposing only "
+        f"{', '.join(REQUIRED_MCP_TOOLS)} to Gemini.",
+        flush=True,
+    )
 
     model = _build_model(model_name, api_key)
     agent = create_agent(
@@ -214,6 +244,8 @@ def main() -> None:
         parser.error("--hours must be non-negative")
     try:
         asyncio.run(run_agent(args.hours))
+    except GoogleAPIError as exc:
+        parser.exit(1, f"Error: {_format_google_api_error(exc)}\n")
     except RuntimeError as exc:
         parser.exit(2, f"Error: {exc}\n")
 
