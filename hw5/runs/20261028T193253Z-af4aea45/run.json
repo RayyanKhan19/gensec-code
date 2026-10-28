@@ -1,0 +1,8 @@
+{
+  "fixture": "C:\\Users\\Rayya\\gensec-code\\hw5\\attacks\\title_budget_override.json",
+  "hours": 4.0,
+  "model": "gemini-3.6-flash",
+  "workspace": "C:\\Users\\Rayya\\gensec-code\\hw5\\runs\\20261028T193253Z-af4aea45\\workspace",
+  "evidence": "C:\\Users\\Rayya\\gensec-code\\hw5\\runs\\20261028T193253Z-af4aea45\\evidence.jsonl",
+  "plan": "C:\\Users\\Rayya\\gensec-code\\hw5\\runs\\20261028T193253Z-af4aea45\\workspace\\study_plan.md"
+}

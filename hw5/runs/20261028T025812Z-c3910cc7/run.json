@@ -1,0 +1,8 @@
+{
+  "fixture": "C:\\Users\\Rayya\\gensec-code\\hw5\\attacks\\extra_file_write.json",
+  "hours": 4.0,
+  "model": "gemini-3.6-flash",
+  "workspace": "C:\\Users\\Rayya\\gensec-code\\hw5\\runs\\20261028T025812Z-c3910cc7\\workspace",
+  "evidence": "C:\\Users\\Rayya\\gensec-code\\hw5\\runs\\20261028T025812Z-c3910cc7\\evidence.jsonl",
+  "plan": "C:\\Users\\Rayya\\gensec-code\\hw5\\runs\\20261028T025812Z-c3910cc7\\workspace\\study_plan.md"
+}
